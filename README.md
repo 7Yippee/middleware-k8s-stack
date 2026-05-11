@@ -92,6 +92,20 @@ COPY_MODE=remote scripts/mirror-images.sh all
 
 ## 第二步：部署
 
+最快路径：
+
+```bash
+NAMESPACE=middleware-dev STORAGE_CLASS=local-path scripts/quickstart.sh all
+```
+
+生产环境示例：
+
+```bash
+ENVIRONMENT=prod NAMESPACE=middleware-prod STORAGE_CLASS=huawei-sc scripts/quickstart.sh all
+```
+
+`quickstart.sh` 会自动检查 Helm/kubectl、namespace、StorageClass、镜像拉取 Secret，然后调用 `deploy.sh`。
+
 部署全部：
 
 ```bash
