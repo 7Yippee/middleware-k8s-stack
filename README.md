@@ -110,6 +110,16 @@ scripts/deploy.sh redis rabbitmq
 ENVIRONMENT=prod NAMESPACE=middleware-prod scripts/deploy.sh all
 ```
 
+部署到不同 namespace，并使用不同 CSI/StorageClass：
+
+```bash
+NAMESPACE=middleware-dev STORAGE_CLASS=local-path scripts/deploy.sh all
+NAMESPACE=middleware-test STORAGE_CLASS=nfs-csi scripts/deploy.sh all
+NAMESPACE=middleware-prod STORAGE_CLASS=huawei-sc ENVIRONMENT=prod scripts/deploy.sh all
+```
+
+这里的 `STORAGE_CLASS` 会覆盖 values 里的 `global.defaultStorageClass`。Bitnami chart 会把它传给 PVC 的 `storageClassName`，也就是最终使用哪个 CSI 由 Kubernetes 集群里的 StorageClass 决定。
+
 部署前自动同步镜像：
 
 ```bash

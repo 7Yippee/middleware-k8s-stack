@@ -7,6 +7,7 @@ NAMESPACE="${NAMESPACE:-middleware}"
 CHART_REGISTRY="${CHART_REGISTRY:-oci://registry-1.docker.io/bitnamicharts}"
 MIRROR_IMAGES="${MIRROR_IMAGES:-false}"
 TIMEOUT="${TIMEOUT:-10m}"
+STORAGE_CLASS="${STORAGE_CLASS:-}"
 
 usage() {
   cat <<'EOF'
@@ -16,6 +17,7 @@ Usage:
 Environment:
   ENVIRONMENT     Values environment, default: dev
   NAMESPACE       Kubernetes namespace, default: middleware
+  STORAGE_CLASS   Override global.defaultStorageClass for this deployment
   MIRROR_IMAGES   Run scripts/mirror-images.sh before deploy, default: false
   TIMEOUT         Helm wait timeout, default: 10m
 
@@ -23,6 +25,7 @@ Examples:
   scripts/deploy.sh all
   scripts/deploy.sh redis rabbitmq
   ENVIRONMENT=prod NAMESPACE=middleware-prod scripts/deploy.sh kafka
+  NAMESPACE=middleware-dev STORAGE_CLASS=local-path scripts/deploy.sh all
   MIRROR_IMAGES=true scripts/deploy.sh all
 EOF
 }
@@ -69,7 +72,12 @@ chart_version() {
 deploy_one() {
   local service="$1"
   local version
+  local storage_args=()
   version="$(chart_version "$service")"
+
+  if [[ -n "$STORAGE_CLASS" ]]; then
+    storage_args+=(--set-string "global.defaultStorageClass=$STORAGE_CLASS")
+  fi
 
   echo "DEPLOY [$ENVIRONMENT/$NAMESPACE] $service chart=$version"
   helm upgrade --install "$service" "$CHART_REGISTRY/$service" \
@@ -79,7 +87,8 @@ deploy_one() {
     --wait \
     --timeout "$TIMEOUT" \
     -f "$ROOT_DIR/envs/$ENVIRONMENT/global.yaml" \
-    -f "$ROOT_DIR/envs/$ENVIRONMENT/$service.yaml"
+    -f "$ROOT_DIR/envs/$ENVIRONMENT/$service.yaml" \
+    "${storage_args[@]}"
 }
 
 SERVICES=()
