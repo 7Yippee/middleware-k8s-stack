@@ -1,0 +1,15 @@
+# component source_image target_repository target_tag
+# Target image format: ${ALIYUN_REGISTRY}/${ALIYUN_NAMESPACE}/${target_repository}:${target_tag}
+kafka docker.io/bitnamilegacy/kafka:4.0.0-debian-12-r10 kafka 4.0.0-debian-12-r10
+kafka docker.io/bitnamilegacy/jmx-exporter:1.4.0-debian-12-r0 jmx-exporter 1.4.0-debian-12-r0
+kafka docker.io/bitnamilegacy/kubectl:1.33.4-debian-12-r0 kubectl 1.33.4-debian-12-r0
+kafka docker.io/bitnamilegacy/os-shell:12-debian-12-r51 os-shell 12-debian-12-r51
+redis docker.io/bitnamilegacy/redis:latest redis 8.6.3
+redis docker.io/bitnamilegacy/redis-sentinel:latest redis-sentinel 8.6.3
+redis docker.io/bitnamilegacy/redis-exporter:latest redis-exporter 1.83.0
+redis docker.io/bitnamilegacy/kubectl:latest kubectl 1.36.0
+redis docker.io/bitnamilegacy/os-shell:latest os-shell latest
+rabbitmq docker.io/bitnamilegacy/rabbitmq:4.1.3-debian-12-r1 rabbitmq 4.1.3-debian-12-r1
+rabbitmq docker.io/bitnamilegacy/os-shell:12-debian-12-r50 os-shell 12-debian-12-r50
+zookeeper docker.io/bitnamilegacy/zookeeper:3.9.3-debian-12-r21 zookeeper 3.9.3-debian-12-r21
+zookeeper docker.io/bitnamilegacy/os-shell:12-debian-12-r50 os-shell 12-debian-12-r50

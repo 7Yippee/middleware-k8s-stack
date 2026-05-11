@@ -1,0 +1,53 @@
+helmDefaults:
+  wait: true
+  atomic: true
+  timeout: 600
+  createNamespace: true
+
+environments:
+  dev:
+    values:
+      - envs/dev/global.yaml
+  prod:
+    values:
+      - envs/prod/global.yaml
+
+---
+
+releases:
+  - name: zookeeper
+    namespace: {{ .Values.namespace | default "middleware" }}
+    chart: oci://registry-1.docker.io/bitnamicharts/zookeeper
+    version: 13.8.7
+    condition: zookeeper.enabled
+    values:
+      - envs/{{ .Environment.Name }}/global.yaml
+      - envs/{{ .Environment.Name }}/zookeeper.yaml
+
+  - name: kafka
+    namespace: {{ .Values.namespace | default "middleware" }}
+    chart: oci://registry-1.docker.io/bitnamicharts/kafka
+    version: 32.4.3
+    condition: kafka.enabled
+    values:
+      - envs/{{ .Environment.Name }}/global.yaml
+      - envs/{{ .Environment.Name }}/kafka.yaml
+
+  - name: redis
+    namespace: {{ .Values.namespace | default "middleware" }}
+    chart: oci://registry-1.docker.io/bitnamicharts/redis
+    version: 25.5.2
+    condition: redis.enabled
+    values:
+      - envs/{{ .Environment.Name }}/global.yaml
+      - envs/{{ .Environment.Name }}/redis.yaml
+
+  - name: rabbitmq
+    namespace: {{ .Values.namespace | default "middleware" }}
+    chart: oci://registry-1.docker.io/bitnamicharts/rabbitmq
+    version: 16.0.14
+    condition: rabbitmq.enabled
+    values:
+      - envs/{{ .Environment.Name }}/global.yaml
+      - envs/{{ .Environment.Name }}/rabbitmq.yaml
+

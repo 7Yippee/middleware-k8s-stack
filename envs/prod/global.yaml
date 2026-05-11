@@ -1,0 +1,17 @@
+global:
+  defaultStorageClass: huawei-sc
+  imagePullSecrets:
+    - aliyun-registry
+  security:
+    allowInsecureImages: true
+
+namespace: middleware
+
+zookeeper:
+  enabled: true
+kafka:
+  enabled: true
+redis:
+  enabled: true
+rabbitmq:
+  enabled: true

@@ -1,0 +1,56 @@
+image:
+  registry: registry.cn-guangzhou.aliyuncs.com
+  repository: tools_y/kafka
+  tag: 4.0.0-debian-12-r10
+  pullPolicy: IfNotPresent
+
+listeners:
+  client:
+    protocol: PLAINTEXT
+  controller:
+    protocol: PLAINTEXT
+  interbroker:
+    protocol: PLAINTEXT
+  external:
+    protocol: PLAINTEXT
+
+controller:
+  replicaCount: 1
+  persistence:
+    enabled: true
+    size: 8Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+broker:
+  replicaCount: 0
+
+defaultInitContainers:
+  volumePermissions:
+    image:
+      registry: registry.cn-guangzhou.aliyuncs.com
+      repository: tools_y/os-shell
+      tag: 12-debian-12-r51
+  autoDiscovery:
+    image:
+      registry: registry.cn-guangzhou.aliyuncs.com
+      repository: tools_y/kubectl
+      tag: 1.33.4-debian-12-r0
+
+metrics:
+  jmx:
+    enabled: false
+    image:
+      registry: registry.cn-guangzhou.aliyuncs.com
+      repository: tools_y/jmx-exporter
+      tag: 1.4.0-debian-12-r0
+
+provisioning:
+  enabled: false
+  topics: []
+

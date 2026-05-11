@@ -1,0 +1,63 @@
+image:
+  registry: registry.cn-guangzhou.aliyuncs.com
+  repository: tools_y/redis
+  tag: 8.6.3
+  pullPolicy: IfNotPresent
+
+architecture: replication
+
+auth:
+  enabled: true
+  password: redis@123456
+
+master:
+  persistence:
+    enabled: true
+    size: 20Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+replica:
+  replicaCount: 2
+  persistence:
+    enabled: true
+    size: 20Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+sentinel:
+  enabled: false
+  image:
+    registry: registry.cn-guangzhou.aliyuncs.com
+    repository: tools_y/redis-sentinel
+    tag: 8.6.3
+
+metrics:
+  enabled: false
+  image:
+    registry: registry.cn-guangzhou.aliyuncs.com
+    repository: tools_y/redis-exporter
+    tag: 1.83.0
+
+volumePermissions:
+  image:
+    registry: registry.cn-guangzhou.aliyuncs.com
+    repository: tools_y/os-shell
+    tag: latest
+
+kubectl:
+  image:
+    registry: registry.cn-guangzhou.aliyuncs.com
+    repository: tools_y/kubectl
+    tag: 1.36.0
+
