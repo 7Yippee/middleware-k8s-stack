@@ -126,6 +126,40 @@ NAMESPACE=middleware-prod STORAGE_CLASS=huawei-sc ENVIRONMENT=prod scripts/deplo
 MIRROR_IMAGES=true scripts/deploy.sh all
 ```
 
+## 替换镜像版本
+
+替换镜像版本需要做两件事：
+
+- 更新 [config/images.txt](config/images.txt)，让同步脚本知道从哪里拉新镜像、推到阿里云哪个 tag。
+- 更新对应环境的 values，让 Helm 部署时使用新 tag。
+
+推荐用脚本统一改，避免漏改：
+
+```bash
+scripts/set-image-tag.sh rabbitmq rabbitmq 4.1.4-debian-12-r0 docker.io/bitnamilegacy/rabbitmq:4.1.4-debian-12-r0
+scripts/mirror-images.sh rabbitmq
+scripts/deploy.sh rabbitmq
+```
+
+只改 dev 环境：
+
+```bash
+ENVIRONMENT=dev scripts/set-image-tag.sh redis redis 8.6.4 docker.io/bitnamilegacy/redis:latest
+scripts/mirror-images.sh redis
+scripts/deploy.sh redis
+```
+
+只临时测试某个镜像 tag，也可以不改文件，直接用 Helm 的 `--set-string`：
+
+```bash
+helm upgrade --install rabbitmq oci://registry-1.docker.io/bitnamicharts/rabbitmq \
+  --version 16.0.14 \
+  -n middleware \
+  -f envs/dev/global.yaml \
+  -f envs/dev/rabbitmq.yaml \
+  --set-string image.tag=4.1.4-debian-12-r0
+```
+
 ## 查看状态
 
 ```bash
