@@ -2,6 +2,9 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/common.sh
+source "$ROOT_DIR/scripts/lib/common.sh"
+
 ENVIRONMENT="${ENVIRONMENT:-dev}"
 NAMESPACE="${NAMESPACE:-middleware}"
 STORAGE_CLASS="${STORAGE_CLASS:-}"
@@ -9,29 +12,32 @@ IMAGE_PULL_SECRET="${IMAGE_PULL_SECRET:-aliyun-registry}"
 ALIYUN_REGISTRY="${ALIYUN_REGISTRY:-registry.cn-guangzhou.aliyuncs.com}"
 CREATE_IMAGE_PULL_SECRET="${CREATE_IMAGE_PULL_SECRET:-auto}"
 MIRROR_IMAGES="${MIRROR_IMAGES:-false}"
+GEN_SECRETS="${GEN_SECRETS:-false}"
 
 usage() {
-  cat <<'EOF'
+  cat <<'USAGE'
 Usage:
-  scripts/quickstart.sh [all|zookeeper|kafka|redis|rabbitmq ...]
+  scripts/quickstart.sh [all|<component> ...]
 
 Environment:
-  ENVIRONMENT                Values environment, default: dev
-  NAMESPACE                  Kubernetes namespace, default: middleware
+  ENVIRONMENT                dev, prod. Default: dev
+  NAMESPACE                  Kubernetes namespace. Default: middleware
   STORAGE_CLASS              StorageClass override. Optional
-  MIRROR_IMAGES              Mirror images before deploy, default: false
-  CREATE_IMAGE_PULL_SECRET   auto, true, or false. Default: auto
-  IMAGE_PULL_SECRET          Pull secret name, default: aliyun-registry
-  ALIYUN_REGISTRY            Registry server, default: registry.cn-guangzhou.aliyuncs.com
+  MIRROR_IMAGES              Mirror images before deploy. Default: false
+  GEN_SECRETS                Generate random auth secrets before deploy. Default: false
+  CREATE_IMAGE_PULL_SECRET   auto|true|false. Default: auto
+  IMAGE_PULL_SECRET          Pull secret name. Default: aliyun-registry
+  ALIYUN_REGISTRY            Registry server. Default: registry.cn-guangzhou.aliyuncs.com
   ALIYUN_USERNAME            Required when creating pull secret
   ALIYUN_PASSWORD            Required when creating pull secret
+                             Alternatively: ALIYUN_PASSWORD_FILE=/path/to/file
 
 Examples:
   scripts/quickstart.sh all
   NAMESPACE=middleware-dev STORAGE_CLASS=local-path scripts/quickstart.sh all
   ENVIRONMENT=prod NAMESPACE=middleware-prod STORAGE_CLASS=huawei-sc scripts/quickstart.sh all
-  ALIYUN_USERNAME=xxx ALIYUN_PASSWORD=xxx scripts/quickstart.sh redis rabbitmq
-EOF
+  GEN_SECRETS=true scripts/quickstart.sh all
+USAGE
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -43,13 +49,13 @@ if [[ $# -eq 0 ]]; then
   set -- all
 fi
 
-require_command() {
-  local command_name="$1"
-  if ! command -v "$command_name" >/dev/null 2>&1; then
-    echo "$command_name is required." >&2
-    exit 1
-  fi
-}
+require_command helm
+require_command kubectl
+
+if [[ ! -d "$ROOT_DIR/envs/$ENVIRONMENT" ]]; then
+  log_error "Environment not found: $ROOT_DIR/envs/$ENVIRONMENT"
+  exit 1
+fi
 
 default_storage_class() {
   awk '
@@ -61,28 +67,32 @@ default_storage_class() {
   ' "$ROOT_DIR/envs/$ENVIRONMENT/global.yaml"
 }
 
-ensure_namespace() {
-  if kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
-    echo "Namespace exists: $NAMESPACE"
+ensure_storage_class() {
+  local sc="${STORAGE_CLASS:-$(default_storage_class)}"
+  if [[ -z "$sc" ]]; then
+    log_warn "No StorageClass specified; Kubernetes default StorageClass will be used."
+    return 0
+  fi
+  if kubectl get storageclass "$sc" >/dev/null 2>&1; then
+    log_info "StorageClass exists: $sc"
   else
-    kubectl create namespace "$NAMESPACE"
+    log_error "StorageClass not found: $sc"
+    log_error "Run 'kubectl get storageclass' and set STORAGE_CLASS to an existing one."
+    exit 1
   fi
 }
 
-ensure_storage_class() {
-  local storage_class="${STORAGE_CLASS:-$(default_storage_class)}"
-  if [[ -z "$storage_class" ]]; then
-    echo "No StorageClass specified; Kubernetes default StorageClass will be used."
+# Read password from env, file, or stdin. Echoes to stdout.
+resolve_aliyun_password() {
+  if [[ -n "${ALIYUN_PASSWORD:-}" ]]; then
+    printf '%s' "$ALIYUN_PASSWORD"
     return 0
   fi
-
-  if kubectl get storageclass "$storage_class" >/dev/null 2>&1; then
-    echo "StorageClass exists: $storage_class"
-  else
-    echo "StorageClass not found: $storage_class" >&2
-    echo "Run 'kubectl get storageclass' and set STORAGE_CLASS to an existing one." >&2
-    exit 1
+  if [[ -n "${ALIYUN_PASSWORD_FILE:-}" && -r "$ALIYUN_PASSWORD_FILE" ]]; then
+    cat "$ALIYUN_PASSWORD_FILE"
+    return 0
   fi
+  return 1
 }
 
 ensure_pull_secret() {
@@ -90,44 +100,48 @@ ensure_pull_secret() {
     return 0
   fi
 
-  if [[ "$CREATE_IMAGE_PULL_SECRET" == "auto" && ( -z "${ALIYUN_USERNAME:-}" || -z "${ALIYUN_PASSWORD:-}" ) ]]; then
-    if kubectl -n "$NAMESPACE" get secret "$IMAGE_PULL_SECRET" >/dev/null 2>&1; then
-      echo "Image pull secret exists: $IMAGE_PULL_SECRET"
-      return 0
-    fi
-    echo "Image pull secret not created because ALIYUN_USERNAME/ALIYUN_PASSWORD are not set."
-    echo "If your registry is private, set credentials or create secret '$IMAGE_PULL_SECRET' manually."
+  if kubectl -n "$NAMESPACE" get secret "$IMAGE_PULL_SECRET" >/dev/null 2>&1; then
+    log_info "Image pull secret exists: $IMAGE_PULL_SECRET"
     return 0
   fi
 
-  if [[ -z "${ALIYUN_USERNAME:-}" || -z "${ALIYUN_PASSWORD:-}" ]]; then
-    echo "ALIYUN_USERNAME and ALIYUN_PASSWORD are required to create pull secret." >&2
+  local password username="${ALIYUN_USERNAME:-}"
+  if ! password="$(resolve_aliyun_password)"; then
+    if [[ "$CREATE_IMAGE_PULL_SECRET" == "auto" ]]; then
+      log_warn "Image pull secret not created (ALIYUN_USERNAME / ALIYUN_PASSWORD not set)."
+      log_warn "If your registry is private, create secret '$IMAGE_PULL_SECRET' manually."
+      return 0
+    fi
+    log_error "ALIYUN_USERNAME and ALIYUN_PASSWORD (or ALIYUN_PASSWORD_FILE) are required."
     exit 1
   fi
 
+  if [[ -z "$username" ]]; then
+    log_error "ALIYUN_USERNAME is required to create pull secret."
+    exit 1
+  fi
+
+  log_info "creating image pull secret: $IMAGE_PULL_SECRET (ns=$NAMESPACE)"
   kubectl -n "$NAMESPACE" create secret docker-registry "$IMAGE_PULL_SECRET" \
     --docker-server="$ALIYUN_REGISTRY" \
-    --docker-username="$ALIYUN_USERNAME" \
-    --docker-password="$ALIYUN_PASSWORD" \
+    --docker-username="$username" \
+    --docker-password="$password" \
     --dry-run=client \
     -o yaml | kubectl apply -f -
+  # Wipe variable immediately.
+  password=""
 }
 
-require_command helm
-require_command kubectl
-
-if [[ ! -d "$ROOT_DIR/envs/$ENVIRONMENT" ]]; then
-  echo "Environment not found: $ROOT_DIR/envs/$ENVIRONMENT" >&2
-  exit 1
-fi
-
-ensure_namespace
+ensure_namespace "$NAMESPACE"
 ensure_storage_class
 ensure_pull_secret
+
+if [[ "$GEN_SECRETS" == "true" ]]; then
+  NAMESPACE="$NAMESPACE" "$ROOT_DIR/scripts/gen-secrets.sh"
+fi
 
 ENVIRONMENT="$ENVIRONMENT" \
 NAMESPACE="$NAMESPACE" \
 STORAGE_CLASS="$STORAGE_CLASS" \
 MIRROR_IMAGES="$MIRROR_IMAGES" \
 "$ROOT_DIR/scripts/deploy.sh" "$@"
-

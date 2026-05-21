@@ -1,3 +1,9 @@
+# Helmfile is an optional entry point. The scripts/ workflow is the primary path.
+# Release list is generated from config/components.txt so the two stay in sync.
+# Usage:
+#   helmfile -e dev apply
+#   helmfile -e prod apply
+
 helmDefaults:
   wait: true
   atomic: true
@@ -14,40 +20,30 @@ environments:
 
 ---
 
+{{- $defaultRegistry := "oci://registry-1.docker.io/bitnamicharts" -}}
+{{- $env := .Environment.Name -}}
+{{- $ns := .Values.namespace | default "middleware" -}}
+
 releases:
-  - name: zookeeper
-    namespace: {{ .Values.namespace | default "middleware" }}
-    chart: oci://registry-1.docker.io/bitnamicharts/zookeeper
-    version: 13.8.7
-    condition: zookeeper.enabled
+{{- range $line := readFile "config/components.txt" | splitList "\n" }}
+  {{- $trimmed := trim $line }}
+  {{- if and (ne $trimmed "") (not (hasPrefix "#" $trimmed)) }}
+    {{- $parts := splitList " " $trimmed }}
+    {{- $name := index $parts 0 }}
+    {{- $chart := index $parts 1 }}
+    {{- $version := index $parts 2 }}
+    {{- $registry := $defaultRegistry }}
+    {{- if ge (len $parts) 4 }}{{ $registry = index $parts 3 }}{{ end }}
+  - name: {{ $name }}
+    namespace: {{ $ns }}
+    chart: {{ $registry }}/{{ $chart }}
+    version: {{ $version }}
+    condition: {{ $name }}.enabled
     values:
-      - envs/{{ .Environment.Name }}/global.yaml
-      - envs/{{ .Environment.Name }}/zookeeper.yaml
-
-  - name: kafka
-    namespace: {{ .Values.namespace | default "middleware" }}
-    chart: oci://registry-1.docker.io/bitnamicharts/kafka
-    version: 32.4.3
-    condition: kafka.enabled
-    values:
-      - envs/{{ .Environment.Name }}/global.yaml
-      - envs/{{ .Environment.Name }}/kafka.yaml
-
-  - name: redis
-    namespace: {{ .Values.namespace | default "middleware" }}
-    chart: oci://registry-1.docker.io/bitnamicharts/redis
-    version: 25.5.2
-    condition: redis.enabled
-    values:
-      - envs/{{ .Environment.Name }}/global.yaml
-      - envs/{{ .Environment.Name }}/redis.yaml
-
-  - name: rabbitmq
-    namespace: {{ .Values.namespace | default "middleware" }}
-    chart: oci://registry-1.docker.io/bitnamicharts/rabbitmq
-    version: 16.0.14
-    condition: rabbitmq.enabled
-    values:
-      - envs/{{ .Environment.Name }}/global.yaml
-      - envs/{{ .Environment.Name }}/rabbitmq.yaml
-
+      - envs/{{ $env }}/global.yaml
+      - envs/{{ $env }}/{{ $name }}.yaml
+    {{- if eq $env "prod" }}
+      - envs/prod/_hardening.yaml
+    {{- end }}
+  {{- end }}
+{{- end }}

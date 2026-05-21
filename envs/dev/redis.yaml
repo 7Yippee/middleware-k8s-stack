@@ -8,7 +8,10 @@ architecture: standalone
 
 auth:
   enabled: true
-  password: redis@123456
+  # Password is read from k8s Secret 'redis-auth' (key: redis-password).
+  # Create via: scripts/gen-secrets.sh redis
+  existingSecret: redis-auth
+  existingSecretPasswordKey: redis-password
 
 master:
   persistence:

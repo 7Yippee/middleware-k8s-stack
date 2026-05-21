@@ -1,0 +1,38 @@
+# Common prod-only hardening overrides.
+# Applied automatically by scripts/deploy.sh when ENVIRONMENT=prod.
+# Per-chart keys below are ignored by charts that do not recognize them;
+# Bitnami charts share a common podAntiAffinity / PDB style.
+
+global:
+  # Keep pods across different nodes when possible.
+  defaultStorageClass: huawei-sc
+
+# ---- RabbitMQ ---------------------------------------------------------------
+podAntiAffinityPreset: hard
+pdb:
+  create: true
+  minAvailable: 2
+networkPolicy:
+  enabled: false  # flip to true once you audit ingress rules
+
+# ---- Redis ------------------------------------------------------------------
+master:
+  podAntiAffinityPreset: hard
+  pdb:
+    create: true
+    minAvailable: 1
+replica:
+  podAntiAffinityPreset: hard
+  pdb:
+    create: true
+    minAvailable: 1
+
+# ---- Kafka (KRaft controller nodes) ----------------------------------------
+controller:
+  podAntiAffinityPreset: hard
+  pdb:
+    create: true
+    minAvailable: 2
+
+# ---- ZooKeeper --------------------------------------------------------------
+# zookeeper chart uses top-level podAntiAffinityPreset too; harmless duplicate.

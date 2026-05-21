@@ -2,7 +2,11 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/common.sh
+source "$ROOT_DIR/scripts/lib/common.sh"
+
 ENVIRONMENT="${ENVIRONMENT:-all}"
+ALIYUN_NAMESPACE="${ALIYUN_NAMESPACE:-tools_y}"
 
 usage() {
   cat <<'EOF'
@@ -70,7 +74,7 @@ update_values_file() {
   local file="$1"
   [[ -f "$file" ]] || return 0
 
-  awk -v repo="tools_y/$target_repository" -v tag="$new_tag" '
+  awk -v repo="$ALIYUN_NAMESPACE/$target_repository" -v tag="$new_tag" '
     $0 ~ /^[[:space:]]*repository:[[:space:]]*/ {
       current_repo=$2
       in_target=(current_repo == repo)

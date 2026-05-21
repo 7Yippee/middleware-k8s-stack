@@ -7,3 +7,8 @@ dist/
 charts/
 *.tgz
 
+# Local overrides and generated secrets - never commit
+envs/**/*.local.yaml
+*.secret.yaml
+secrets/
+offline-bundle/

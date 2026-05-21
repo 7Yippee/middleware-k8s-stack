@@ -1,0 +1,8 @@
+# component chart_name chart_version [chart_registry]
+# Used by deploy.sh, uninstall.sh, pull-charts.sh and helmfile.yaml as single source of truth.
+# chart_registry is optional; when omitted, $CHART_REGISTRY (default: bitnami OCI) is used.
+# Declaration order matters: deploy.sh deploys components top-to-bottom.
+zookeeper zookeeper 13.8.7
+kafka kafka 32.4.3
+redis redis 25.5.2
+rabbitmq rabbitmq 16.0.14
